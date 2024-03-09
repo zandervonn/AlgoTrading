@@ -1,16 +1,10 @@
 from flask import json
 
-from src.authentication import TastytradeAuth
 from src.market_data.market_metrics import MarketMetrics
 
 
-def get_market_metrics(username, password, api_url):
-	# Initialize the authentication object
-	auth = TastytradeAuth(username, password)
-
-	# Log in to the API
-	auth_data = auth.login()
-	market_metrics = MarketMetrics(auth.session_token, api_url)
+def get_market_metrics(session_token, api_url):
+	market_metrics = MarketMetrics(session_token, api_url)
 	symbols = ["AAPL", "FB", "BRK/B"]
 	try:
 		metrics_data = market_metrics.get_metrics(symbols)
@@ -19,13 +13,9 @@ def get_market_metrics(username, password, api_url):
 	except Exception as e:
 		print(str(e))
 
-def get_dividends(username, password, api_url):
-	# Initialize the authentication object
-	auth = TastytradeAuth(username, password)
+def get_dividends(session_token, api_url):
 
-	# Log in to the API
-	auth_data = auth.login()
-	market_metrics = MarketMetrics(auth.session_token, api_url)
+	market_metrics = MarketMetrics(session_token, api_url)
 
 	# ----  Get dividend data
 	symbol = "AAPL"
@@ -35,13 +25,9 @@ def get_dividends(username, password, api_url):
 	except Exception as e:
 		print(str(e))
 
-def get_earnings(username, password, api_url):
-	# Initialize the authentication object
-	auth = TastytradeAuth(username, password)
+def get_earnings(session_token, api_url):
 
-	# Log in to the API
-	auth_data = auth.login()
-	market_metrics = MarketMetrics(auth.session_token, api_url)
+	market_metrics = MarketMetrics(session_token, api_url)
 
 	symbol = "AAPL"
 	start_date = "2020-01-01"
