@@ -35,7 +35,7 @@ class TastytradeAccountPositions:
 		and returns a list of position objects.
 
 		Args:
-			account_number (int): The account number to retrieve positions for.
+			account_number: The account number to retrieve positions for.
 			underlying_symbol (list of str, optional): An array of underlying symbols to filter positions by. Defaults to None.
 			symbol (str, optional): A single symbol to filter positions by. Defaults to None.
 			instrument_type (str, optional): The type of instrument to filter positions by. Defaults to None.
@@ -82,7 +82,7 @@ class TastytradeAccountPositions:
 		and returns a dictionary of balance values.
 
 		Args:
-			account_number (int): The account number for which to retrieve balances.
+			account_number: The account number for which to retrieve balances.
 
 		Returns:
 			dict: Dictionary of balance values, as returned by the API.
@@ -111,7 +111,7 @@ class TastytradeAccountPositions:
 		balance snapshots, and returns the most recent snapshot and current balance.
 
 		Args:
-			account_number (int): The account number for which to retrieve balance snapshots.
+			account_number: The account number for which to retrieve balance snapshots.
 			snapshot_date (str): The day of the balance snapshot to retrieve, in YYYY-MM-DD format.
 			time_of_day (str): The abbreviation for the time of day. Available values: "EOD" (End of Day), "BOD" (Beginning of Day).
 

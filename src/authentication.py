@@ -1,8 +1,11 @@
+import json
+import os
+
 import requests
 import time
 from typing import Dict, Optional
 
-from src.gitignore.access import API_URL
+from gitignore.access import api_url, storage_path
 
 
 class TastytradeAuth:
@@ -10,10 +13,12 @@ class TastytradeAuth:
 		self.username = username
 		self.password = password
 		self.remember_token = remember_token
-		self.url = f"{API_URL}/sessions"
+		self.url = f"{api_url()}/sessions"
 		self.session_token = None
 		self.user_data = None
 		self.token_timestamp = None
+		self.storage_path = storage_path()
+		self.load_token()
 
 	def login(self, two_factor_code: str = None) -> Optional[Dict[str, str]]:
 		payload = {"login": self.username, "remember-me": "true"}
@@ -38,6 +43,7 @@ class TastytradeAuth:
 			self.remember_token = data["data"]["remember-token"]
 			self.user_data = data["data"]["user"]
 			self.token_timestamp = time.time()
+			self.save_token()
 			return data
 		else:
 			print(f"Error: {response.status_code}")
@@ -51,12 +57,12 @@ class TastytradeAuth:
 			Optional[Dict[str, str]]: A dictionary containing the user data if the session is valid.
 			Returns None if the session is invalid or there's an error.
 		"""
-		url = f"{API_URL}/sessions/validate"
+		url = f"{api_url()}/sessions/validate"
 		headers = {"Authorization": self.session_token}
 
 		response = requests.post(url, headers=headers)
 
-		if response.status_code == 200:
+		if response.status_code == 200 or response.status_code == 201:
 			data = response.json()
 			return data
 		else:
@@ -98,7 +104,7 @@ class TastytradeAuth:
 			print("Error: Session token not found. Please login first.")
 			return None
 
-		url = f"{API_URL}/quote-streamer-tokens"
+		url = f"{api_url()}/quote-streamer-tokens"
 		headers = {"Authorization": self.session_token}
 
 		response = requests.get(url, headers=headers)
@@ -148,7 +154,45 @@ class TastytradeAuth:
 			self.remember_token = data["data"]["remember-token"]
 			self.user_data = data["data"]["user"]
 			self.token_timestamp = time.time()
+			self.save_token()
 			return data
 		else:
 			print(f"Error: {response.status_code}")
 			return None
+
+	def load_token(self):
+		"""
+		Loads the session token and timestamp from the storage file.
+		"""
+		if os.path.exists(self.storage_path):
+			with open(self.storage_path, "r") as file:
+				data = json.load(file)
+				self.session_token = data.get("session_token")
+				self.token_timestamp = data.get("token_timestamp")
+
+	def save_token(self):
+		"""
+		Saves the current session token and timestamp to the storage file.
+		"""
+		data = {
+			"session_token": self.session_token,
+			"token_timestamp": self.token_timestamp
+		}
+		with open(self.storage_path, "w") as file:
+			json.dump(data, file)
+
+	def get_session(self) -> str:
+		"""
+		Gets the current session token, refreshing it if it's been more than 24 hours.
+		Saves the refreshed token to storage.
+
+		Returns:
+			str: The current session token.
+		"""
+
+		if self.validate_session() == None:
+			self.login()
+			self.save_token()
+
+
+		return self.session_token

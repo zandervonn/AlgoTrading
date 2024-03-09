@@ -1,3 +1,5 @@
+import logging
+
 import requests
 import json
 
@@ -17,7 +19,7 @@ class TastytradeOrder:
 		and returns the response as a JSON object.
 
 		Args:
-			account_number (int): The account number for the order to reconfirm.
+			account_number : The account number for the order to reconfirm.
 			order_id (int): The ID of the order to reconfirm.
 
 		Returns:
@@ -31,6 +33,7 @@ class TastytradeOrder:
 
 		if response.status_code == 201:
 			response_data = response.json()
+			print(response.request)
 			return response_data
 		else:
 			raise Exception(f"Error reconfirming order: {response.status_code} - {response.content}")
@@ -43,7 +46,7 @@ class TastytradeOrder:
 		and returns the response as a JSON object.
 
 		Args:
-			account_number (int): The account number for the order to run preflights on.
+			account_number : The account number for the order to run preflights on.
 			order_id (int): The ID of the order to run preflights on.
 			order_data (dict): Dictionary containing the order data to use for the preflight.
 
@@ -70,7 +73,7 @@ class TastytradeOrder:
 		and returns the response as a JSON object.
 
 		Args:
-			account_number (int): The account number for the order to retrieve.
+			account_number : The account number for the order to retrieve.
 			order_id (int): The ID of the order to retrieve.
 
 		Returns:
@@ -96,7 +99,7 @@ class TastytradeOrder:
 		and returns the response as a JSON object.
 
 		Args:
-			account_number (int): The account number for the order to cancel.
+			account_number : The account number for the order to cancel.
 			order_id (int): The ID of the order to cancel.
 
 		Returns:
@@ -122,7 +125,7 @@ class TastytradeOrder:
 		and returns the response as a JSON object.
 
 		Args:
-			account_number (int): The account number for the order to replace.
+			account_number : The account number for the order to replace.
 			order_id (int): The ID of the order to replace.
 			order_data (dict): Dictionary containing the order data to use for the replacement.
 
@@ -149,7 +152,7 @@ class TastytradeOrder:
 		and returns the response as a JSON object.
 
 		Args:
-			account_number (int): The account number for the order to edit.
+			account_number : The account number for the order to edit.
 			order_id (int): The ID of the order to edit.
 			order_data (dict): Dictionary containing the updated order data to use for the replacement.
 
@@ -177,7 +180,7 @@ class TastytradeOrder:
 		and returns the response as a JSON object.
 
 		Args:
-			account_number (int): The account number for which to retrieve the list of live orders.
+			account_number : The account number for which to retrieve the list of live orders.
 
 		Returns:
 			dict: Dictionary containing the response data, as returned by the API.
@@ -204,7 +207,7 @@ class TastytradeOrder:
 		based on the provided parameters, and returns the response as a JSON object.
 
 		Args:
-			account_number (int): The account number for which to retrieve the list of orders.
+			account_number: The account number for which to retrieve the list of orders.
 			per_page (int): The number of orders to return per page.
 			page_offset (int): The page offset to use when retrieving orders.
 			start_date (str): The start date to use for filtering orders.
@@ -253,7 +256,7 @@ class TastytradeOrder:
 		and returns the response as a JSON object.
 
 		Args:
-			account_number (int): The account number for which to create the order.
+			account_number: The account number for which to create the order.
 			order (dict): The order details to be created.
 
 		Returns:
@@ -269,11 +272,22 @@ class TastytradeOrder:
 		}
 		response = requests.post(url, headers=headers, json=order)
 
+		# Log the request details
+		logging.debug(f"Request URL: {response.request.url}")
+		logging.debug(f"Request Headers: {response.request.headers}")
+		logging.debug(f"Request Body: {response.request.body}")
+
+		# Log the response details
+		logging.debug(f"Response Status Code: {response.status_code}")
+		logging.debug(f"Response Headers: {response.headers}")
+		logging.debug(f"Response Body: {response.text}")
+
 		if response.status_code == 201:
 			response_data = response.json()
 			return response_data
 		else:
-			raise Exception(f"Error creating order: {response.status_code} - {response.content}")
+			raise Exception(f"Error creating order: {response.status_code} - {response.text}")
+
 
 	def dry_run_new_order(self, account_number, order_data):
 		"""
@@ -283,7 +297,7 @@ class TastytradeOrder:
 		and returns the response as a JSON object.
 
 		Args:
-			account_number (int): The account number for the new order.
+			account_number : The account number for the new order.
 			order_data (dict): Dictionary containing the order data to use for validation.
 
 		Returns:
