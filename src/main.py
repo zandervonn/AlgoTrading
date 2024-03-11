@@ -1,5 +1,3 @@
-import logging
-
 from src.accounts.account_handler import *
 from src.accounts.balances_positions import TastytradeAccountPositions
 from src.authentication import TastytradeAuth
@@ -7,26 +5,18 @@ from gitignore.access import *
 from src.helpers.helpers import *
 from src.symbology import to_tastytrade_option_symbol
 from src.trading.simple_verticle_trade import VerticalSpreadTrader
-from src.trading.tradeOpenAlgo import SimpleOpenTradingAlgo
 from src.trading.trading_main import *
 import pandas as pd
 
 
 #todo printing error on 201 reply
-
-def init_account(auth):
-	# Log in to the API
-	auth.login()
-	print("Session token:", auth.session_token)
-
-	account = TastytradeAccount(auth.session_token, api_url())
-	# accounts = account.get_accounts()
+def init_account(session_token):
+	account = TastytradeAccount(session_token, api_url())
 	accounts = account.get_customer()
-	accounts = get_positions(account_number(), api_url(), auth.session_token)
 	print(accounts)
 
-def get_first_account_number(auth):
-	account = TastytradeAccount(auth.session_token, api_url())
+def get_first_account_number(session_token):
+	account = TastytradeAccount(session_token, api_url())
 	accounts = account.get_accounts()
 	if accounts:
 		first_account = accounts[0]
@@ -34,15 +24,6 @@ def get_first_account_number(auth):
 	else:
 		print("No accounts found")
 		return None
-
-def setup_trading(auth):
-	trader = Trader(auth.session_token, api_url(), account_number)
-	Trader.place_market_buy_order(trader, "APPL", 1)
-
-def setup_trading_open(auth):
-	trader = Trader(auth.session_token, api_url(), account_number())
-	algo = SimpleOpenTradingAlgo(trader, ["AAPL", "MSFT", "GOOGL"], 10)
-	algo.run()
 
 def test_hours():
 	market_hours = MarketHours()
@@ -55,27 +36,14 @@ def test_hours():
 	print("Next Holiday:", market_hours.next_holiday(current_time))
 	print("List of Holidays:", market_hours.list_holidays())
 
-def simple_verticle_trade(session_token):
-	trader = Trader(session_token, api_url(), account_number())
-	vertical_spread_trader = VerticalSpreadTrader(
-		trader=trader,
-		symbol="APP",
-		days_to_expiration=45,
-		sell_delta=16,
-		buy_delta=10,
-		quantity=1,
-		price=26
-	)
-	vertical_spread_trader.run()
-
 def test():
 	session_token = TastytradeAuth(username(), password()).get_session()
 	headers = {"Authorization": f"{session_token}"}
 	# response = requests.get(f"{api_url()}/instruments/cryptocurrencies/BTC%2FUSD", headers=headers) # working
 	# response = requests.get(f"{api_url()}/instruments/equities/", headers=headers) # working
-	# response = requests.get(f"{api_url()}/option-chains/GOOG", headers=headers) # working
+	response = requests.get(f"{api_url()}/option-chains/GOOG", headers=headers) # working
 	# response = requests.get(f"{api_url()}/accounts/{account_number()}/trading-status", headers=headers) # working
-	response = requests.get(f"{api_url()}/accounts/{account_number()}/positions", headers=headers)
+	# response = requests.get(f"{api_url()}/accounts/{account_number()}/positions", headers=headers)
 
 	with open('data.txt', 'w') as file:
 		json.dump(response.text, file)
@@ -84,7 +52,6 @@ def test():
 	print(response.request.url)
 	print(response)
 	print(response.text)
-	# print(response.json())
 	print(response.status_code)
 
 def get_orders():
@@ -97,10 +64,6 @@ def get_orders():
 	print("Orders: ", json.dumps(orders.get_orders(account_number()), indent=4))
 
 	return positions
-
-def make_order():
-	session_token = TastytradeAuth(username(), password()).get_session()
-	simple_verticle_trade(session_token)
 
 
 def make_simple_order():
@@ -118,16 +81,36 @@ def make_simple_order():
 			}
 		]
 	}
-	logging.basicConfig(level=logging.DEBUG)
-	TastytradeOrder(session_token, api_url()).create_order(account_number(), buy_order)
+
+
+def test_symbols():
+	symbol = 'GOOG'
+	session_token = TastytradeAuth(username(), password()).get_session()
+	# instrument = TastytradeInstruments(session_token, api_url())
+	apple = to_tastytrade_option_symbol(symbol, 170, "C", "2024-03-15")
+	# optionsAppl = instrument.get_equity_options(symbols=apple)
+	# print(optionsAppl)
+
+def make_order():
+	# Authenticate and get session token
+	session_token = TastytradeAuth(username(), password()).get_session()
+
+	trader = Trader(session_token, api_url(), account_number())
+
+	# Set up and run VerticalSpreadTrader
+	symbol = "AAPL"
+	days_to_expiration = 45  # Adjust based on your trading strategy
+	sell_strike = 155  # Adjust based on current AAPL price and your outlook
+	buy_strike = 150  # Adjust based on current AAPL price and your outlook
+	quantity = 1
+	price = 2.45  # Adjust based on current bid-ask spreads of the options
+	vertical_spread_trader = VerticalSpreadTrader(trader, symbol, days_to_expiration, sell_strike, buy_strike, quantity, price)
+	vertical_spread_trader.run()
 
 def main():
 
-	# test_hours()
-	# test()
-	# get_orders()
 	make_order()
-	# make_simple_order()
+	# get_orders()
 
 
 
