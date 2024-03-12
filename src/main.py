@@ -4,6 +4,7 @@ from src.authentication import TastytradeAuth
 from gitignore.access import *
 from src.helpers.helpers import *
 from src.symbology import to_tastytrade_option_symbol
+from src.trading.DiagonalSpreadTrader import DiagonalSpreadTrader
 from src.trading.simple_verticle_trade import VerticalSpreadTrader
 from src.trading.trading_main import *
 import pandas as pd
@@ -41,12 +42,12 @@ def test():
 	headers = {"Authorization": f"{session_token}"}
 	# response = requests.get(f"{api_url()}/instruments/cryptocurrencies/BTC%2FUSD", headers=headers) # working
 	# response = requests.get(f"{api_url()}/instruments/equities/", headers=headers) # working
-	response = requests.get(f"{api_url()}/option-chains/GOOG", headers=headers) # working
+	response = requests.get(f"{api_url()}/option-chains/XBI", headers=headers) # working
 	# response = requests.get(f"{api_url()}/accounts/{account_number()}/trading-status", headers=headers) # working
 	# response = requests.get(f"{api_url()}/accounts/{account_number()}/positions", headers=headers)
 
 	with open('data.txt', 'w') as file:
-		json.dump(response.text, file)
+		json.dump(response.text, file, indent=4)
 
 	print(session_token)
 	print(response.request.url)
@@ -84,14 +85,14 @@ def make_simple_order():
 
 
 def test_symbols():
-	symbol = 'GOOG'
+	symbol = 'XBI'
 	session_token = TastytradeAuth(username(), password()).get_session()
 	# instrument = TastytradeInstruments(session_token, api_url())
 	apple = to_tastytrade_option_symbol(symbol, 170, "C", "2024-03-15")
 	# optionsAppl = instrument.get_equity_options(symbols=apple)
 	# print(optionsAppl)
 
-def make_order():
+def make_vertical_order():
 	# Authenticate and get session token
 	session_token = TastytradeAuth(username(), password()).get_session()
 
@@ -99,20 +100,57 @@ def make_order():
 
 	# Set up and run VerticalSpreadTrader
 	symbol = "AAPL"
-	days_to_expiration = 45  # Adjust based on your trading strategy
-	sell_strike = 155  # Adjust based on current AAPL price and your outlook
-	buy_strike = 150  # Adjust based on current AAPL price and your outlook
+	days_to_expiration = 45
+	sell_strike = 155
+	buy_strike = 150
 	quantity = 1
-	price = 2.45  # Adjust based on current bid-ask spreads of the options
+	price = 0.25
 	vertical_spread_trader = VerticalSpreadTrader(trader, symbol, days_to_expiration, sell_strike, buy_strike, quantity, price)
 	vertical_spread_trader.run()
 
+
+def make_vertical_SPX_order():
+	# Authenticate and get session token
+	session_token = TastytradeAuth(username(), password()).get_session()
+
+	trader = Trader(session_token, api_url(), account_number())
+
+	# Set up and run VerticalSpreadTrader
+	symbol = "AAPL"
+	days_to_expiration = 45
+	sell_strike = 155
+	buy_strike = 150
+	quantity = 1
+	price = 0.25
+	vertical_spread_trader = VerticalSpreadTrader(trader, symbol, days_to_expiration, sell_strike, buy_strike, quantity, price)
+	vertical_spread_trader.run()
+
+
+
+def make_diagonal_order():
+	# Authenticate and get session token
+	session_token = TastytradeAuth(username(), password()).get_session()
+
+	trader = Trader(session_token, api_url(), account_number())
+
+	# Set up and run
+	symbol = "AAPL"
+	long_days_to_expiration = 0
+	short_days_to_expiration = 30
+	long_strike = 150
+	short_strike = 155
+	quantity = 1
+	price = 2.45
+	diagonal_spread_trader = DiagonalSpreadTrader(trader, symbol, long_days_to_expiration, short_days_to_expiration, long_strike, short_strike, quantity, price)
+	diagonal_spread_trader.run()
+
+
 def main():
 
-	make_order()
+	# make_diagonal_order()
+	make_vertical_order()
 	# get_orders()
-
-
+	# test()
 
 if __name__ == '__main__':
 	main()

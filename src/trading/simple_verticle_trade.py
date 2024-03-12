@@ -1,8 +1,8 @@
 import datetime
+import json
 
 from src.market_data.instrument import TastytradeInstruments
 from src.trading.order import TastytradeOrder
-from src.symbology import to_tastytrade_option_symbol
 
 
 class VerticalSpreadTrader:
@@ -42,27 +42,28 @@ class VerticalSpreadTrader:
 
 		# Filter options by the closest expiration date
 		options_near_expiration = [option for option in flat_options if option['expiration-date'] == closest_expiration_date]
-		print("Options near expiration:", options_near_expiration)
+		# print("Options near expiration:", options_near_expiration)
 
 		# Filter for call options
-		call_options = [option for option in options_near_expiration if 'call' in option]
-		print("Call options:", call_options)
+		# call_options = [option for option in options_near_expiration if 'put' in option]
+		puts_options = [option for option in options_near_expiration if 'put' in option]
+		# print("Call options:", call_options)
 
 		# Find options for the spread
-		sell_option = self.find_option_by_strike(call_options, self.sell_strike)
-		buy_option = self.find_option_by_strike(call_options, self.buy_strike)
+		sell_option = self.find_option_by_strike(puts_options, self.sell_strike)
+		buy_option = self.find_option_by_strike(puts_options, self.buy_strike)
 		print("Sell option:", sell_option)
 		print("Buy option:", buy_option)
 
-		sell_option_symbol = sell_option['call']
-		buy_option_symbol = buy_option['call']
+		sell_option_symbol = sell_option['put']
+		buy_option_symbol = buy_option['put']
 
 		# Construct the order details
 		order = {
 			"time-in-force": "GTC",
 			"order-type": "Limit",
 			"price": self.price,
-			"price-effect": "Debit",
+			"price-effect": "Credit",
 			"legs": [
 				{
 					"instrument-type": "Equity Option",
@@ -83,4 +84,6 @@ class VerticalSpreadTrader:
 		# Place the order
 		order_client = TastytradeOrder(self.trader.session_token, self.trader.api_url)
 		order_response = order_client.create_order(self.trader.account_number, order)
-		print("Order response:", order_response)
+		# print("Order response:", json.dumps(order_response, indent=4))
+
+		return order_response

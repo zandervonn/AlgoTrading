@@ -2,7 +2,6 @@ import datetime
 
 import pandas as pd
 import pandas_market_calendars as mcal
-import pytz
 
 class MarketHours:
 	def __init__(self):
@@ -49,3 +48,4 @@ class MarketHours:
 		upcoming_holidays = [holiday for holiday in self.holidays if today <= holiday <= one_year_from_now]
 		upcoming_holidays.sort()
 		return upcoming_holidays
+
