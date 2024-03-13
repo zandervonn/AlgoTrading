@@ -104,7 +104,7 @@ class TastytradeAuth:
 			print("Error: Session token not found. Please login first.")
 			return None
 
-		url = f"{api_url()}/quote-streamer-tokens"
+		url = f"{api_url()}/api-quote-tokens"
 		headers = {"Authorization": self.session_token}
 
 		response = requests.get(url, headers=headers)
