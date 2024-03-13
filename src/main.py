@@ -1,3 +1,5 @@
+import pytz
+
 from src.accounts.account_handler import *
 from src.accounts.balances_positions import TastytradeAccountPositions
 from src.authentication import TastytradeAuth
@@ -7,7 +9,6 @@ from src.symbology import to_tastytrade_option_symbol
 from src.trading.DiagonalSpreadTrader import DiagonalSpreadTrader
 from src.trading.simple_verticle_trade import VerticalSpreadTrader
 from src.trading.trading_main import *
-import pandas as pd
 
 
 #todo printing error on 201 reply

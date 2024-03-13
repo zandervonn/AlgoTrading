@@ -1,12 +1,10 @@
 import asyncio
-from tastytrade_api.streamer.dxfeed_handler import CometdWebsocketClient
-
-from dx_mapping import Trade
 import logging
-from tastytrade_api.authentication import TastytradeAuth
 import configparser
 
-
+from src.authentication import TastytradeAuth
+from src.streamer.dx_feed_handler import CometdWebsocketClient
+from src.streamer.dx_mapping import Quote
 
 
 async def dx_token_builder():
@@ -49,7 +47,7 @@ async def consume_data(queue):
 			break
 		try:
 			print("This is the raw data: ", data)
-			quotes = Trade.from_list(data)
+			quotes = Quote.from_list(data)
 			for quote in quotes:
 				print("Data received in script:", quote)
 		except ValueError:

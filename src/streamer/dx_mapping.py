@@ -1,5 +1,3 @@
-import json
-
 class Quote:
 
 	def __init__(self, symbol, event_time, sequence, time_nano_part, bid_time, bid_exchange_code, bid_price, bid_size, ask_time, ask_exchange_code, ask_price, ask_size):

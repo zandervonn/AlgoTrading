@@ -1,11 +1,9 @@
 import json
 import logging
 import time
-from websocket import WebSocketApp
 import threading
-
 import functools
-
+from websocket import WebSocketApp
 
 logger = logging.getLogger(__name__)
 

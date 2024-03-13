@@ -34,11 +34,6 @@ class CometdWebsocketClient:
 			'Authorization': 'Bearer ' + self.auth_token,
 			'User-Agent': 'My Python App'
 		}
-		""" ssl_context = ssl.create_default_context()
-		ssl_context.check_hostname = False
-		ssl_context.verify_mode = ssl.CERT_NONE
-		"""
-		# async with websockets.connect(self.url, extra_headers=headers, ssl=ssl_context) as websocket:
 		async with websockets.connect(self.url, extra_headers=headers) as websocket:
 			self.websocket = websocket
 			await self.send_handshake(websocket)
