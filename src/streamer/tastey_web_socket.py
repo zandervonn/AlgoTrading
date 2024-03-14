@@ -21,10 +21,12 @@ class TastytradeWebsocketClient:
 		}
 		async with websockets.connect(self.url, extra_headers=headers) as websocket:
 			self.websocket = websocket
+			logger.info("Connection established")
 			await self.setup_connection(websocket)
 			await self.authorize(websocket)
 			await self.request_channel(websocket)
 
+			heartbeat_task = asyncio.create_task(self.send_heartbeat(websocket))
 			listen_task = asyncio.create_task(self.process_messages(websocket))
 
 			try:
@@ -34,7 +36,6 @@ class TastytradeWebsocketClient:
 				listen_task.cancel()
 				return
 
-			# Re-subscribe to quotes if needed
 			if self.subscribed_symbols:
 				await self.subscribe_to_quotes(websocket, self.subscribed_symbols)
 
@@ -85,23 +86,37 @@ class TastytradeWebsocketClient:
 	def reset_state(self):
 		self.channel_opened_event.clear()
 
+	async def send_heartbeat(self, websocket):
+		heartbeat_message = {
+			"type": "KEEPALIVE",
+			"channel": 0
+		}
+		while True:
+			await asyncio.sleep(10)  # Send a heartbeat every 30 seconds
+			if websocket.open:
+				logger.info("Sending heartbeat")
+				await websocket.send(json.dumps(heartbeat_message))
+			else:
+				logger.info("Connection closed, stopping heartbeat")
+				break
+
 	async def listen(self, websocket):
 		while True:
 			try:
 				message = await websocket.recv()
-				print("Websocket message: ", message)
+				logger.info(f"Received message: {message}")
 				data = json.loads(message)
 				if data.get("type") == "CHANNEL_OPENED":
 					self.channel_id = data["channel"]
 					self.channel_opened_event.set()
 				elif data.get("type") == "FEED_DATA":
 					yield data
-			except websockets.exceptions.ConnectionClosedOK:
-				print("Connection closed normally, attempting to reconnect...")
-				await self.connect()  # Reconnect to the WebSocket
+			except websockets.exceptions.ConnectionClosedOK as e:
+				logger.info(f"Connection closed normally with code {e.code}: {e.reason}")
+				await self.connect()
 				break
 			except websockets.exceptions.ConnectionClosedError as e:
-				print(f"Connection closed with error: {e}")
+				logger.error(f"Connection closed with error code {e.code}: {e.reason}")
 				break
 			except Exception as e:
-				print(f"Error while processing message: {e}")
+				logger.error(f"Error while processing message: {e}")
