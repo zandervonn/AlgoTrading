@@ -11,8 +11,10 @@ class TastytradeWebsocketClient:
 		self.auth_token = auth_token
 		self.data_queue = data_queue
 		self.channel_opened_event = asyncio.Event()
+		self.subscribed_symbols = []
 
 	async def connect(self):
+		self.reset_state()
 		headers = {
 			'Authorization': 'Bearer ' + self.auth_token,
 			'User-Agent': 'My Python App'
@@ -21,20 +23,20 @@ class TastytradeWebsocketClient:
 			self.websocket = websocket
 			await self.setup_connection(websocket)
 			await self.authorize(websocket)
-			await self.request_channel(websocket)  # Request a new channel
+			await self.request_channel(websocket)
 
 			listen_task = asyncio.create_task(self.process_messages(websocket))
 
 			try:
-				await asyncio.wait_for(self.channel_opened_event.wait(), timeout=10)  # Wait for 10 seconds
-
+				await asyncio.wait_for(self.channel_opened_event.wait(), timeout=10)
 			except asyncio.TimeoutError:
 				logger.error("Timeout waiting for channel to open")
 				listen_task.cancel()
 				return
 
-			# Subscribe to Quote events
-			await self.subscribe_to_quotes(websocket, "AAPL")
+			# Re-subscribe to quotes if needed
+			if self.subscribed_symbols:
+				await self.subscribe_to_quotes(websocket, self.subscribed_symbols)
 
 
 	async def setup_connection(self, websocket):
@@ -59,16 +61,12 @@ class TastytradeWebsocketClient:
 		}
 		await websocket.send(json.dumps(auth_message))
 
-	async def subscribe_to_quotes(self, websocket, symbol):
+	async def subscribe_to_quotes(self, websocket, symbols):
+		self.subscribed_symbols = symbols
 		subscription_message = {
 			"channel": self.channel_id,
 			"type": "FEED_SUBSCRIPTION",
-			"add": [
-				{
-					"type": "Quote",
-					"symbol": symbol
-				}
-			]
+			"add": [{"type": "Quote", "symbol": symbol} for symbol in symbols]
 		}
 		await websocket.send(json.dumps(subscription_message))
 
@@ -83,20 +81,27 @@ class TastytradeWebsocketClient:
 		logger.debug(f"Sending message: {message_str}")
 		await websocket.send(message_str)
 
+
+	def reset_state(self):
+		self.channel_opened_event.clear()
+
 	async def listen(self, websocket):
 		while True:
 			try:
 				message = await websocket.recv()
 				print("Websocket message: ", message)
 				data = json.loads(message)
-				# Log all received messages
 				if data.get("type") == "CHANNEL_OPENED":
 					self.channel_id = data["channel"]
 					self.channel_opened_event.set()
 				elif data.get("type") == "FEED_DATA":
 					yield data
+			except websockets.exceptions.ConnectionClosedOK:
+				print("Connection closed normally, attempting to reconnect...")
+				await self.connect()  # Reconnect to the WebSocket
+				break
 			except websockets.exceptions.ConnectionClosedError as e:
-				logger.error(f"Connection closed with error: {e}")
+				print(f"Connection closed with error: {e}")
 				break
 			except Exception as e:
-				logger.error(f"Error while processing message: {e}")
+				print(f"Error while processing message: {e}")

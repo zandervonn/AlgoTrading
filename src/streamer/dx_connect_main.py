@@ -16,7 +16,14 @@ async def main():
 	print("connecting ")
 	await client.connect()
 
-	while not data_queue.empty():
+	# Wait for a few seconds before subscribing to quotes
+	await asyncio.sleep(1)
+
+	# Subscribe to quotes for Apple
+	await client.subscribe_to_quotes(client.websocket, ["AAPL"])
+
+	# Process received data
+	while True:
 		data = await data_queue.get()
 		print(data)
 
