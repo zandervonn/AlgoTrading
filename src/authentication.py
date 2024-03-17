@@ -105,6 +105,7 @@ class TastytradeAuth:
 			return None
 
 		url = f"{api_url()}/api-quote-tokens"
+		# url = f"{api_url()}/quote-streamer-tokens"
 		headers = {"Authorization": self.session_token}
 
 		response = requests.get(url, headers=headers)

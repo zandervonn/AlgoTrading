@@ -87,3 +87,15 @@ class VerticalSpreadTrader:
 		# print("Order response:", json.dumps(order_response, indent=4))
 
 		return order_response
+
+	def find_option_by_expiration(self, days_to_expiration):
+		# Get option chains
+		instrument = TastytradeInstruments(self.trader.session_token, self.trader.api_url)
+		option_chain_data = instrument.get_option_chains(self.symbol)
+
+		# Calculate the target expiration date
+		target_date = datetime.datetime.now() + datetime.timedelta(days=days_to_expiration)
+
+		# Find the option with an expiration date closest to the target date
+		closest_option = min(option_chain_data, key=lambda x: abs(datetime.datetime.strptime(x['expiration-date'], "%Y-%m-%d") - target_date))
+		return closest_option['streamer-symbol']

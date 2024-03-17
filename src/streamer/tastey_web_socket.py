@@ -11,34 +11,41 @@ class TastytradeWebsocketClient:
 		self.auth_token = auth_token
 		self.data_queue = data_queue
 		self.channel_opened_event = asyncio.Event()
-		self.subscribed_symbols = []
+		self.subscribed_symbols = {}
+		self.websocket = None
 
 	async def connect(self):
+		if self.websocket is not None:
+			await self.websocket.close()
+
 		self.reset_state()
 		headers = {
 			'Authorization': 'Bearer ' + self.auth_token,
 			'User-Agent': 'My Python App'
 		}
-		async with websockets.connect(self.url, extra_headers=headers) as websocket:
-			self.websocket = websocket
-			logger.info("Connection established")
-			await self.setup_connection(websocket)
-			await self.authorize(websocket)
-			await self.request_channel(websocket)
+		try:
+			self.websocket = await websockets.connect(self.url, extra_headers=headers)
+		except websockets.InvalidStatusCode as e:
+			logger.error(f"Connection failed with status code {e.status_code}")
+			return
+		except Exception as e:
+			logger.error(f"Error during connection: {e}")
+			return
 
-			heartbeat_task = asyncio.create_task(self.send_heartbeat(websocket))
-			listen_task = asyncio.create_task(self.process_messages(websocket))
+		logger.info("Connection established")
+		await self.setup_connection(self.websocket)
+		await self.authorize(self.websocket)
+		await self.request_channel(self.websocket)
 
-			try:
-				await asyncio.wait_for(self.channel_opened_event.wait(), timeout=10)
-			except asyncio.TimeoutError:
-				logger.error("Timeout waiting for channel to open")
-				listen_task.cancel()
-				return
+		heartbeat_task = asyncio.create_task(self.send_heartbeat(self.websocket))
+		listen_task = asyncio.create_task(self.process_messages(self.websocket))
 
-			if self.subscribed_symbols:
-				await self.subscribe_to_quotes(websocket, self.subscribed_symbols)
-
+		try:
+			await asyncio.wait_for(self.channel_opened_event.wait(), timeout=10)
+		except asyncio.TimeoutError:
+			logger.error("Timeout waiting for channel to open")
+			listen_task.cancel()
+			return
 
 	async def setup_connection(self, websocket):
 		setup_message = {
@@ -71,6 +78,26 @@ class TastytradeWebsocketClient:
 		}
 		await websocket.send(json.dumps(subscription_message))
 
+	async def subscribe_to_options(self, websocket, symbols):
+		self.subscribed_symbols = symbols
+		subscription_message = {
+			"channel": self.channel_id,
+			"type": "FEED_SUBSCRIPTION",
+			"add": [{"type": "Options", "symbol": symbol} for symbol in symbols]
+		}
+		await websocket.send(json.dumps(subscription_message))
+
+	async def subscribe_to_greeks(self, websocket, symbols):
+		subscription_message = {
+			"channel": self.channel_id,
+			"type": "FEED_SUBSCRIPTION",
+			"add": [{"type": "Greeks", "symbol": symbol} for symbol in symbols]
+		}
+		for symbol in symbols:
+			self.subscribed_symbols[symbol] = None
+		await websocket.send(json.dumps(subscription_message))
+
+
 	async def request_channel(self, websocket):
 		channel_request_message = {
 			"type": "CHANNEL_REQUEST",
@@ -85,6 +112,11 @@ class TastytradeWebsocketClient:
 
 	def reset_state(self):
 		self.channel_opened_event.clear()
+
+	async def disconnect(self):
+		if self.websocket and self.websocket.open:
+			await self.websocket.close()
+			logger.info("Disconnected from WebSocket")
 
 	async def send_heartbeat(self, websocket):
 		heartbeat_message = {
@@ -110,13 +142,20 @@ class TastytradeWebsocketClient:
 					self.channel_id = data["channel"]
 					self.channel_opened_event.set()
 				elif data.get("type") == "FEED_DATA":
+					for item in data['data']:
+						symbol = item['eventSymbol']
+						if symbol in self.subscribed_symbols:
+							self.subscribed_symbols[symbol] = item
 					yield data
-			except websockets.exceptions.ConnectionClosedOK as e:
-				logger.info(f"Connection closed normally with code {e.code}: {e.reason}")
+			except websockets.ConnectionClosedOK as e:
+				# logger.info(f"Connection closed normally with code {e.code}: {e.reason}")
+				print(f"Connection closed normally with code {e.code}")
 				await self.connect()
 				break
-			except websockets.exceptions.ConnectionClosedError as e:
-				logger.error(f"Connection closed with error code {e.code}: {e.reason}")
+			except websockets.ConnectionClosedError as e:
+				# logger.error(f"Connection closed with error code {e.code}: {e.reason}")
+				print(f"Connection closed with error code {e.code}")
 				break
 			except Exception as e:
-				logger.error(f"Error while processing message: {e}")
+				# logger.error(f"Error while processing message: {e}")
+				print("Error while processing message")

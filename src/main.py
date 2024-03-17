@@ -1,49 +1,21 @@
-import pytz
+import asyncio
+import re
+
+import websockets
 
 from src.accounts.account_handler import *
-from src.accounts.balances_positions import TastytradeAccountPositions
 from src.authentication import TastytradeAuth
 from gitignore.access import *
 from src.helpers.helpers import *
-from src.symbology import to_tastytrade_option_symbol
-from src.trading.DiagonalSpreadTrader import DiagonalSpreadTrader
-from src.trading.simple_verticle_trade import VerticalSpreadTrader
-from src.trading.trading_main import *
+from src.streamer.tastey_web_socket import TastytradeWebsocketClient
 
-
-#todo printing error on 201 reply
-def init_account(session_token):
-	account = TastytradeAccount(session_token, api_url())
-	accounts = account.get_customer()
-	print(accounts)
-
-def get_first_account_number(session_token):
-	account = TastytradeAccount(session_token, api_url())
-	accounts = account.get_accounts()
-	if accounts:
-		first_account = accounts[0]
-		return first_account["account-number"]
-	else:
-		print("No accounts found")
-		return None
-
-def test_hours():
-	market_hours = MarketHours()
-
-	current_time = pd.Timestamp.now(pytz.timezone('US/Eastern'))
-	print("Current Time:", current_time)
-	print("Is Market Open:", market_hours.is_market_open(current_time))
-	print("Time Until Open:", market_hours.time_until_open(current_time))
-	print("Is Holiday:", market_hours.is_holiday(current_time))
-	print("Next Holiday:", market_hours.next_holiday(current_time))
-	print("List of Holidays:", market_hours.list_holidays())
 
 def test():
 	session_token = TastytradeAuth(username(), password()).get_session()
 	headers = {"Authorization": f"{session_token}"}
 	# response = requests.get(f"{api_url()}/instruments/cryptocurrencies/BTC%2FUSD", headers=headers) # working
 	# response = requests.get(f"{api_url()}/instruments/equities/", headers=headers) # working
-	response = requests.get(f"{api_url()}/option-chains/XBI", headers=headers) # working
+	response = requests.get(f"{api_url()}/option-chains/AAPL", headers=headers) # working
 	# response = requests.get(f"{api_url()}/accounts/{account_number()}/trading-status", headers=headers) # working
 	# response = requests.get(f"{api_url()}/accounts/{account_number()}/positions", headers=headers)
 
@@ -56,102 +28,94 @@ def test():
 	print(response.text)
 	print(response.status_code)
 
-def get_orders():
-	session_token = TastytradeAuth(username(), password()).get_session()
-	positions = TastytradeAccountPositions(session_token, api_url())
-	orders = TastytradeOrder(session_token, api_url())
-
-	print("Balances: ", json.dumps(positions.get_account_balances(account_number()), indent=4))
-	print("Positions: ", json.dumps(positions.get_positions(account_number()), indent=4))
-	print("Orders: ", json.dumps(orders.get_orders(account_number()), indent=4))
-
-	return positions
-
-
-def make_simple_order():
-	session_token = TastytradeAuth(username(), password()).get_session()
-	buy_order = {
-		"time-in-force": "GTC",
-		"order-type": "Stop",
-		"stop-trigger": 105,
-		"legs": [
-			{
-				"instrument-type": "Equity",
-				"symbol": "AAPL",
-				"quantity": 1,
-				"action": "Sell to Close"
-			}
-		]
-	}
-
-
-def test_symbols():
-	symbol = 'XBI'
-	session_token = TastytradeAuth(username(), password()).get_session()
-	# instrument = TastytradeInstruments(session_token, api_url())
-	apple = to_tastytrade_option_symbol(symbol, 170, "C", "2024-03-15")
-	# optionsAppl = instrument.get_equity_options(symbols=apple)
-	# print(optionsAppl)
-
-def make_vertical_order():
-	# Authenticate and get session token
-	session_token = TastytradeAuth(username(), password()).get_session()
-
-	trader = Trader(session_token, api_url(), account_number())
-
-	# Set up and run VerticalSpreadTrader
-	symbol = "AAPL"
-	days_to_expiration = 45
-	sell_strike = 155
-	buy_strike = 150
-	quantity = 1
-	price = 0.25
-	vertical_spread_trader = VerticalSpreadTrader(trader, symbol, days_to_expiration, sell_strike, buy_strike, quantity, price)
-	vertical_spread_trader.run()
-
-
-def make_vertical_SPX_order():
-	# Authenticate and get session token
-	session_token = TastytradeAuth(username(), password()).get_session()
-
-	trader = Trader(session_token, api_url(), account_number())
-
-	# Set up and run VerticalSpreadTrader
-	symbol = "AAPL"
-	days_to_expiration = 45
-	sell_strike = 155
-	buy_strike = 150
-	quantity = 1
-	price = 0.25
-	vertical_spread_trader = VerticalSpreadTrader(trader, symbol, days_to_expiration, sell_strike, buy_strike, quantity, price)
-	vertical_spread_trader.run()
-
-
-
-def make_diagonal_order():
-	# Authenticate and get session token
-	session_token = TastytradeAuth(username(), password()).get_session()
-
-	trader = Trader(session_token, api_url(), account_number())
-
-	# Set up and run
-	symbol = "AAPL"
-	long_days_to_expiration = 0
-	short_days_to_expiration = 30
-	long_strike = 150
-	short_strike = 155
-	quantity = 1
-	price = 2.45
-	diagonal_spread_trader = DiagonalSpreadTrader(trader, symbol, long_days_to_expiration, short_days_to_expiration, long_strike, short_strike, quantity, price)
-	diagonal_spread_trader.run()
-
+data_queue = asyncio.Queue()
 
 def main():
-
-	# make_diagonal_order()
-	make_vertical_order()
 	# get_orders()
 	# test()
+	# getdxtoken()
+	asyncio.run(make_vertical_SPY_order())
+
+# data_queue = asyncio.Queue()
+
+def getdxtoken():
+	dx_token = TastytradeAuth(username(), password()).get_dxfeed_token()
+	dx_token = dx_token["data"]["token"]
+	print(dx_token)
+
+async def make_vertical_SPY_order():
+	# Authenticate and get session token
+	options = find_options_by_expiration("AAPL", 30)
+	options = [option for option in options if re.search(r'P\d+$', option)]
+	print(options)
+	symbol_deltas = await getDeltaSymbols(options)
+
+	print(symbol_deltas)
+
+	# Find the symbols closest to the target deltas
+	low_delta_symbol = min(symbol_deltas, key=lambda k: abs(symbol_deltas[k] + 0.16))
+	high_delta_symbol = min(symbol_deltas, key=lambda k: abs(symbol_deltas[k] - 0.20))
+
+	print(f"Symbol closest to low delta (-0.16): {low_delta_symbol}")
+	print(f"Symbol closest to high delta (0.20): {high_delta_symbol}")
+
+
+
+def find_options_by_expiration(symbol, days_to_expiration):
+	# Get option chains
+	session_token = TastytradeAuth(username(), password()).get_session()
+	headers = {"Authorization": f"{session_token}"}
+	response = requests.get(f"{api_url()}/option-chains/{symbol}", headers=headers)
+	response_data = json.loads(response.content)
+	option_chain = response_data["data"]["items"]
+
+	# Calculate the target expiration date
+	target_date = datetime.datetime.now() + datetime.timedelta(days=days_to_expiration)
+
+	# Find the expiration date closest to the target date
+	closest_expiration_date = min(option_chain, key=lambda x: abs(datetime.datetime.strptime(x['expiration-date'], "%Y-%m-%d") - target_date))['expiration-date']
+
+	# Filter options by the closest expiration date
+	options_at_closest_expiration = [option for option in option_chain if option['expiration-date'] == closest_expiration_date]
+
+	# Extract the symbols of the options
+	option_symbols = [option['streamer-symbol'] for option in options_at_closest_expiration]
+
+	return option_symbols
+
+async def getDeltaSymbols(symbols):
+	websocket_url = "wss://demo.dxfeed.com/dxlink-ws"
+	client = TastytradeWebsocketClient(websocket_url, '', data_queue)
+
+	symbol_deltas = {}
+	for i, symbol in enumerate(symbols, start=1):
+		print(f"Connecting to process symbol: {symbol} ({i}/{len(symbols)})")
+		while True:
+			try:
+				await client.connect()
+				break  # Exit the loop if the connection is successful
+			except (websockets.ConnectionClosedOK, websockets.InvalidStatusCode):
+				print("Error connecting. Retrying...")
+				await asyncio.sleep(2)  # Wait for 2 seconds before retrying
+				continue  # Retry connecting
+
+		try:
+			await client.subscribe_to_greeks(client.websocket, [symbol])
+
+			print(f"Subscribed to symbol: {symbol}")
+
+			data = await asyncio.wait_for(data_queue.get(), timeout=8)  # Adjust timeout as needed
+			print(data)
+			if 'delta' in data['data'][0]:
+				symbol_deltas[symbol] = data['data'][0]['delta']
+		except asyncio.TimeoutError as e:
+			print(f"Timeout waiting for data for symbol {symbol}: {e}")
+
+		# Disconnect after processing the symbol
+		await client.disconnect()
+
+	print("Deltas for symbols:", symbol_deltas)
+	return symbol_deltas
 
 if __name__ == '__main__':
 	main()
